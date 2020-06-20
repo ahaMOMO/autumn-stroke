@@ -7,10 +7,16 @@
             "name": "计算机网络"
         },
         {
-            "name": "数据结构"
+            "name": "数据结构与算法"
         },
         {
             "name": "JavaScript"
+        },
+        {
+            "name": "leetcode刷题记录"
+        },
+        {
+            "name": "前端必备"
         }
     ],
     "version": "1"
