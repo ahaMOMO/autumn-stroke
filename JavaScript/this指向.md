@@ -12,7 +12,7 @@ this对象是在**运行时**基于函数的执行环境绑定的（this 实际�
 
 匿名函数的执行环境具有全局性，因此其this对象通常指向window;
 
-```
+```js
 var name = "the window";
 var object = {
 	name: "my object",
@@ -33,7 +33,7 @@ alert(object.getNameFunc()()); //"the window"(在非严格模式下)
 
 下面我们来看看到底什么是调用栈和调用位置：
 
-```
+```js
 function baz() {
     // 当前调用栈是：baz
     // 因此，当前调用位置是全局作用域
@@ -65,7 +65,7 @@ baz(); // <-- baz 的调用位置
 
 ##### 1）默认绑定（普通函数调用）
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -79,7 +79,7 @@ foo(); // 2
 
 如果使用严格模式（strict mode），那么全局对象将无法使用默认绑定，因此 this 会绑定到 undefined：
 
-```
+```js
 function foo() {
     "use strict";
     console.log( this.a );
@@ -90,7 +90,7 @@ foo(); // TypeError: this is undefined
 
 这里有一个微妙但是非常重要的细节，虽然 this 的绑定规则完全取决于调用位置，但是只有 foo() 运行在非 strict mode 下时，默认绑定才能绑定到全局对象；严格模式下与 foo()的调用位置无关：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -105,7 +105,7 @@ var a = 2;
 
 思考下面的代码：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -124,7 +124,7 @@ obj.foo(); // 2
 
 对象属性引用链中只有最顶层或者说最后一层会影响调用位置。举例来说：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -145,7 +145,7 @@ obj1.obj2.foo(); // 42
 
 思考下面的代码：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -162,7 +162,7 @@ bar(); // "oops, global"
 
 一种更微妙、更常见并且更出乎意料的情况发生在传入回调函数时：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -182,7 +182,7 @@ doFoo( obj.foo ); // "oops, global"
 
 如果把函数传入语言内置的函数而不是传入你自己声明的函数，会发生什么呢？结果是一样的，没有区别：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -212,7 +212,7 @@ JavaScript 中的“所有”函数都有一些有用的特性（这和它们的
 
 思考下面的代码：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -231,7 +231,7 @@ foo.call( obj ); // 2
 但是显式绑定的一个变种可以解决这个问题。
 思考下面的代码：
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -251,7 +251,7 @@ bar.call( window ); // 2
 
 硬绑定的典型应用场景就是创建一个包裹函数，传入所有的参数并返回接收到的所有值：
 
-```
+```js
 function foo(something) {
     console.log( this.a, something );
     return this.a + something;
@@ -268,7 +268,7 @@ console.log( b ); // 5
 
 另一种使用方法是创建一个 i 可以重复使用的辅助函数：
 
-```
+```js
 function foo(something) {
     console.log( this.a, something );
     return this.a + something;
@@ -289,7 +289,7 @@ console.log( b ); // 5
 
 由于硬绑定是一种非常常用的模式，所以在 ES5 中提供了内置的方法 Function.prototype.bind，它的用法如下：
 
-```
+```js
 function foo(something) {
     console.log( this.a, something );
     return this.a + something;
@@ -323,7 +323,7 @@ JavaScript 也有一个 new 操作符，使用方法看起来也和那些面向�
 
 思考下面的代码：
 
-```
+```js
 function foo(a) {
     this.a = a;
 }
@@ -341,7 +341,7 @@ console.log( bar.a ); // 2
 
 ##### 1）隐式绑定与显式绑定对比
 
-```
+```js
 function foo() {
     console.log( this.a );
 }
@@ -363,7 +363,7 @@ obj2.foo.call( obj1 ); // 2
 
 ##### 2）new 绑定和隐式绑定的对比
 
-```
+```js
 function foo(something) {
     this.a = something;
 }
@@ -392,7 +392,7 @@ new 和 call/apply 无法一起使用，因此无法通过 new foo.call(obj1) �
 
 我们看看是不是这样：
 
-```
+```js
 function foo(something) {
     this.a = something;
 }
@@ -409,7 +409,7 @@ console.log( baz.a ); // 3
 
 再来看看我们之前介绍的“裸”辅助函数 bind：
 
-```
+```js
 function bind(fn, obj) {
     return function() {
         fn.apply( obj, arguments );
@@ -421,8 +421,8 @@ function bind(fn, obj) {
 
 实际上，ES5 中内置的 Function.prototype.bind(..) 更加复杂。下面是 MDN 提供的一种bind(..) 实现，为了方便阅读我们对代码进行了排版：
 
-```
-if (!Function.prototype.bind) {
+```js
+jsif (!Function.prototype.bind) {
     Function.prototype.bind = function(oThis) {
         if (typeof this !== "function") {
             // 与 ECMAScript 5 最接近的
@@ -456,7 +456,7 @@ if (!Function.prototype.bind) {
 
 下面是 new 修改 this 的相关代码：
 
-```
+```js
 this instanceof fNOP &&
 oThis ? this : oThis
 // ... 以及：
@@ -470,7 +470,7 @@ fBound.prototype = new fNOP();
 
 举例来说：
 
-```
+```js
 function foo(p1,p2) {
     this.val = p1 + p2;
 }
@@ -489,7 +489,7 @@ baz.val; // p1p2
 
 如果你把 null 或者 undefined 作为 this 的绑定对象传入 call、apply 或者 bind，**这些值 在调用时会被忽略，实际应用的是默认绑定规则**：
 
-```
+```js
 function foo() { 
 	console.log( this.a );
 }
@@ -501,7 +501,7 @@ foo.call( null ); // 2
 
 一种非常常见的做法是使用 apply(..) 来“展开”一个数组，并当作参数传入一个函数。 类似地，bind(..) 可以对参数进行柯里化（预先设置一些参数），这种方法有时非常有用：
 
-```
+```js
 function foo(a,b) { 
 	console.log( "a:" + a + ", b:" + b );
 }
@@ -526,7 +526,7 @@ bar( 3 ); // a:2,b:3
 
 JavaScript 中创建一个空对象最简单的方法都是 Object.create(null)。Object.create(null) 和 {} 很 像， 但 是 并 不 会 创 建 Object. prototype 这个委托，所以它比 {}“更空”：
 
-```
+```js
 function foo(a,b) { 
 	console.log( "a:" + a + ", b:" + b ); 
 }
@@ -548,7 +548,7 @@ bar( 3 ); // a:2, b:3
 
 间接引用最容易在赋值时发生：
 
-```
+```js
 function foo() {
 	console.log( this.a );
 } 
@@ -571,7 +571,7 @@ o.foo(); // 3
 
 可以通过一种被称为软绑定的方法来实现我们想要的效果：
 
-```
+```js
 if (!Function.prototype.softBind) { 
 	Function.prototype.softBind = function(obj) { 
 		var fn = this; 
@@ -594,7 +594,7 @@ if (!Function.prototype.softBind) {
 
 下面我们看看 softBind 是否实现了软绑定功能：
 
-```
+```js
 function foo() { 
 	console.log("name: " + this.name); 
 }
@@ -622,7 +622,7 @@ setTimeout( obj2.foo, 10 ); // name: obj <---- 应用了软绑定
 
 我们来看看箭头函数的词法作用域：
 
-```
+```js
 function foo() { 
     // 返回一个箭头函数
     return (a) => { 
@@ -647,7 +647,7 @@ foo() 内部创建的箭头函数会捕获调用时 foo() 的 this。由于 foo(
 
 箭头函数最常用于回调函数中，例如事件处理器或者定时器：
 
-```
+```js
 function foo() { 
 	setTimeout(() => { 
         // 这里的 this 在此法上继承自 foo() 
@@ -662,7 +662,7 @@ foo.call( obj ); // 2
 
 箭头函数可以像 bind(..) 一样确保函数的 this 被绑定到指定对象，此外，其重要性还体现在它用更常见的词法作用域取代了传统的 this 机制。实际上，在 ES6 之前我们就已经 在使用一种几乎和箭头函数完全一样的模式。
 
-```
+```js
 function foo() {
 	var self = this; // lexical capture of this 
 	setTimeout( function(){ 
