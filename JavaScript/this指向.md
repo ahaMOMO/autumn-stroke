@@ -699,3 +699,224 @@ foo.call( obj ); // 2
 
 ### 7.this绑定常见面试题
 
+##### 1.
+
+```js
+var x = 10;
+var obj = {
+    x: 20,
+    f: function(){
+        console.log(this.x);        // ?
+        var foo = function(){ 
+            console.log(this.x);    
+        }
+        foo();                      // ?
+    }
+};
+obj.f();
+```
+
+-----------------------答案---------------------
+答案 ： 20 10
+解析 ：考点 **1.** this默认绑定 **2.** this隐性绑定
+
+```js
+var x = 10;
+var obj = {
+    x: 20,
+    f: function(){
+        console.log(this.x);    // 20
+                                // 典型的隐性绑定,这里 f 的this指向上下文 obj ,即输出 20
+        function foo(){ 
+            console.log(this.x); 
+            }
+        foo();       // 10
+                     //有些人在这个地方就想当然的觉得 foo 在函数 f 里,也在 f 里执行，
+                     //那 this 肯定是指向obj 啊, 仔细看看我们说的this绑定规则 , 对应一下很容易
+                     //发现这种'光杆司令'，是我们一开始就示范的默认绑定(foo() 是直接使用不带任何修饰					   //的函数引用进行调用的，因此只能使用默认绑定，无法应用其他规则),这里this绑定的是						//window
+    }
+};
+obj.f();   
+```
+
+##### 2.
+
+```js
+function foo(arg){
+    this.a = arg;
+    return this
+};
+
+var a = foo(1);
+var b = foo(10);
+
+console.log(a.a);    // ?
+console.log(b.a);    // ?
+```
+
+-----------------------答案---------------------
+
+答案 ： undefined 10
+解析 ：考点 **1.** 全局污染 **2.** this默认绑定
+
+这道题很有意思，问题基本上都集中在第一undefined上，这其实是题目的小陷阱，但是追栈的过程绝对精彩
+让我们一步步分析这里发生了什么：
+
+1. foo(1)执行，应该不难看出是默认绑定吧 , this指向了window，函数里等价于 window**.**a = 1,return window;
+2. var a = foo(1) 等价于 window**.**a = window , 很多人都忽略了**var a 就是window.a** ，将刚刚赋值的 1 替换掉了。
+3. 所以这里的 a 的值是 window , a**.**a 也是window ， 即window**.**a = window ; window**.**a**.**a = window;
+4. foo(10) 和第一次一样，都是默认绑定，这个时候，**将window.a 赋值成 10** ，注意这里是关键，原来window.a = window ,现在被赋值成了10，变成了值类型，所以现在 a.a = undefined。(验证这一点只需要将var b = foo(10);删掉，这里的 a.a 还是window)
+5. var b = foo(10); 等价于 window.b = window;
+
+本题中所有变量的值，a = window.a = 10 , a.a = undefined , b = window , b.a = window.a = 10;
+
+##### 3.
+
+```js
+var x = 10;
+var obj = {
+    x: 20,
+    f: function(){ console.log(this.x); }
+};
+var bar = obj.f;
+var obj2 = {
+    x: 30,
+    f: obj.f
+}
+obj.f(); //?
+bar(); //?
+obj2.f(); //?
+```
+
+-----------------------答案---------------------
+答案：20 10 30
+解析：传说中的送分题，考点，辨别this绑定
+
+```js
+var x = 10;
+var obj = {
+    x: 20,
+    f: function(){ console.log(this.x); }
+};
+var bar = obj.f;
+var obj2 = {
+    x: 30,
+    f: obj.f
+}
+obj.f();    // 20
+            //有上下文，this为obj，隐性绑定
+bar();      // 10
+            //'光杆司令' 默认绑定  （ obj.f 只是普通的赋值操作 ）
+obj2.f();   //30
+			//使用obj2调用f函数，this为obj2
+```
+
+##### 4.
+
+```js
+function foo() {
+    getName = function () { console.log (1); };
+    return this;
+}
+foo.getName = function () { console.log(2);};
+foo.prototype.getName = function () { console.log(3);};
+var getName = function () { console.log(4);};
+function getName () { console.log(5);}
+ 
+foo.getName ();                // ?
+getName ();                    // ?
+foo().getName ();              // ?
+getName ();                    // ?
+new foo.getName ();            // ?
+new foo().getName ();          // ?
+new new foo().getName ();      // ?
+```
+
+-----------------------答案---------------------
+答案：2 4 1 1 2 3 3
+解析：考点 1. new绑定 2.隐性绑定 3. 默认绑定 4.变量污染
+
+```js
+function foo() {
+    getName = function () { console.log (1); }; 
+            //这里的getName 将创建到全局window上
+    return this;
+}
+foo.getName = function () { console.log(2);};   
+        //这个getName和上面的不同，是直接添加到foo上的
+foo.prototype.getName = function () { console.log(3);}; 
+        // 这个getName直接添加到foo的原型上，在用new创建新对象时将直接添加到新对象上 
+var getName = function () { console.log(4);}; 
+        // 和foo函数里的getName一样, 将创建到全局window上
+function getName () { console.log(5);}    
+        // 同上，但是这个函数不会被使用，因为函数声明的提升优先级最高，所以上面的函数表达式将永远替换
+        // 这个同名函数，除非在函数表达式赋值前去调用getName()，但是在本题中，函数调用都在函数表达式
+        // 之后，所以这个函数可以忽略了
+        
+        // 通过上面对 getName的分析基本上答案已经出来了
+
+foo.getName ();                // 2
+                               // 下面为了方便，我就使用输出值来简称每个getName函数
+                               // 这里有小伙伴疑惑是在 2 和 3 之间，觉得应该是3 , 但其实直接设置
+                               // foo.prototype上的属性，对当前这个对象的属性是没有影响的,如果要使
+                              // 用的话，可以foo.prototype.getName() 这样调用 ，这里需要知道的是
+                               // 3 并不会覆盖 2，两者不冲突 ( 当你使用new 创建对象时，这里的
+                               // Prototype 将自动绑定到新对象上，即用new 构造调用的第二个作用)
+                               
+getName ();                    // 4 
+                              // 这里涉及到函数提升的问题，不知道的小伙伴只需要知道 5 会被 4 覆盖，
+                               // 虽然 5 在 4 的下面，其实 js 并不是完全的自上而下，想要深入了解的
+                               // 小伙伴可以看文章最后的链接
+                               
+foo().getName ();              // 1 
+                               // 这里的foo函数执行完成了两件事, 1. 将window.getName设置为1,
+                               // 2. 返回window , 故等价于 window.getName(); 输出 1
+getName ();                    // 1
+                               // 刚刚上面的函数刚把window.getName设置为1,故同上 输出 1
+                               
+new foo.getName ();            // 2
+                              // new 对一个函数进行构造调用 , 即 foo.getName ,构造调用也是调用啊
+                               // 该执行还是执行，然后返回一个新对象，输出 2 (虽然这里没有接收新
+                               // 创建的对象但是我们可以猜到，是一个函数名为 foo.getName 的对象
+                               // 且__proto__属性里有一个getName函数，是上面设置的 3 函数)
+                               
+new foo().getName ();          // 3
+                              // 这里特别的地方就来了,new 是对一个函数进行构造调用,它直接找到了离它
+                             // 最近的函数,foo(),并返回了应该新对象,等价于 var obj = new foo();
+                               // obj.getName(); 这样就很清晰了,输出的是之前绑定到prototype上的
+                               // 那个getName  3 ,因为使用new后会将函数的prototype继承给 新对象
+                               
+new new foo().getName ();      // 3
+                               // 哈哈，这个看上去很吓人，让我们来分解一下：
+                               // var obj = new foo();
+                               // var obj1 = new obj.getName();
+                               // 好了，仔细看看, 这不就是上两题的合体吗,obj 有getName 3, 即输出3
+                             // obj 是一个函数名为 foo的对象,obj1是一个函数名为obj.getName的对象
+```
+
+##### 5.
+
+```js
+function foo(){
+    return ()=>{
+        console.log(this.a);
+    }
+}
+foo.a = 10;
+
+// 1. 箭头函数关联父级作用域this
+
+var bar = foo();            // foo默认绑定
+bar();                      // undefined 哈哈，是不是有小伙伴想当然了
+
+var baz = foo.call(foo);    // foo 显性绑定
+baz();                      // 10 
+
+// 2. 箭头函数this不可修改
+//这里我们使用上面的已经绑定了foo 的 baz
+var obj = {
+    a : 999
+}
+baz.call(obj);              // 10
+```
+
