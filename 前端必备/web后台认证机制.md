@@ -113,7 +113,7 @@ Cookie认证机制就是为一次请求认证在服务端创建一个Session对�
 优点：
 
 - 认证方式可以支持多种客户端，而不仅是浏览器。
-- 支持跨域访问（cookie不支持跨域是因为浏览器的安全策略所导致，但是token没有这个限制）
+- 支持跨域访问（cookie不支持跨域是因为浏览器的安全策略所导致，但是token完全由应用管理，所以它可以避开同源策略）
 - 无状态（服务器扩展性强）：token机制在服务端不需要存储session信息，因为Token 自身包含了所有登录用户的信息，只需要在客户端的cookie或本地介质存储状态信息。
 - 不使用 `cookie` 就可以规避CSRF攻击。
 
@@ -129,8 +129,14 @@ Cookie认证机制就是为一次请求认证在服务端创建一个Session对�
 ![image-20200705212433242](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200705212434.png)
 
 - 将荷载payload，以及Header信息进行Base64加密，形成密文payload密文，header密文。
-- 将payload密文和header密文用英文句号连接在一起，用服务端秘钥进行HS256加密，生成签名。
+- 将payload密文和header密文用英文句号连接在一起，用服务端秘钥进行HS256（对称算法）加密，生成签名。
 - 将payload密文，header密文以及签名用英文句号连接在一起形成”header密文+” .“+”payload密文“+“.”+“签名”“这种形式的token。
+
+> 为啥使用HS256（对称算法）？
+>
+> 非对称算法存在一方签发，另一方验证的情况。但是在这里，签发和验证都是同一方，所以对称加密算法就能达到要求，而对称算法比非对称算法要快得多（可达数十倍差距）。
+>
+> 更进一步思考，对称加密算法除了加密，还带有还原加密内容的功能，而这一功能在对 Token 签名时并无必要——既然不需要解密，摘要（散列）算法就会更快。可以指定密码的散列算法，自然是 HMAC。（但是这里还是用到了对称算法HS256）
 
 ###### token解析机制？
 
@@ -142,6 +148,8 @@ Cookie认证机制就是为一次请求认证在服务端创建一个Session对�
 ###### token存在cookie中为什么可以规避CSRF攻击？
 
 即使在客户端使用cookie存储token，cookie也<u>仅仅是一个存储机制而不是用于认证</u>。
+
+因为就算黑客劫持了 cookie中的token,但是服务器不通过获取cookie去认证，所以黑客获得了token也无用。
 
 比如：
 
@@ -198,3 +206,127 @@ Host: server.example.com
 Authorization: Bearer mF_9.B5f-4.1JqM
 ```
 
+###### 实际应用遇到的常见问题
+
+当token未到期，用户却注销账号后，怎么处理这个token?
+
+- 服务器保存这个被注销的token,以便下次收到使用这个仍在有效期内的 Token 时判其无效;
+- 若是前端可以控制，前端一旦注销成功，丢弃本地保存（cookie或者localStorage）；
+- 可以使用refresh token。
+
+refresh token 的流程：
+
+![image-20200706201200545](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200706201205.png)
+
+![image-20200706201238285](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200706201240.png)
+
+### 4.基于JWT的Token认证机制实现
+
+> JWT规定了Token的具体实现方式
+
+##### 4.1概念
+
+WT 的原理是，服务器认证以后，生成一个 JSON 对象，发回给用户。用户与服务端通信的时候，都要发回这个 JSON 对象。服务器完全只靠这个对象认定用户身份。为了防止用户篡改数据，服务器在生成这个对象的时候，会加上签名。
+
+##### 4.2JWT的结构
+
+- Header（头部）
+- Payload（负载）
+- Signature（签名）
+
+###### Header（头部）
+
+Header 部分是一个 JSON 对象，描述 JWT 的元数据，通常是下面的样子:
+
+```js
+{
+  "alg": "HS256",	//alg属性表示签名的算法（algorithm），默认是 HMAC SHA256（写成 HS256）
+  "typ": "JWT"		//typ属性表示这个令牌（token）的类型（type），JWT 令牌统一写为JWT
+}
+```
+
+最后，将上面的 JSON 对象使用 Base64URL 算法转成字符串。
+
+###### Payload（负载）
+
+Payload 部分也是一个 JSON 对象，用来存放实际需要传递的数据。JWT 规定了7个官方字段，供选用。
+
+- iss (issuer)：签发人
+- exp (expiration time)：过期时间
+- sub (subject)：主题
+- aud (audience)：受众
+- nbf (Not Before)：生效时间
+- iat (Issued At)：签发时间
+- jti (JWT ID)：编号
+
+注意，JWT 默认是不加密的，任何人都可以读到，所以不要把秘密信息放在这个部分。
+
+这个 JSON 对象也要使用 Base64URL 算法转成字符串。
+
+###### Signature（签名）
+
+Signature 部分是对前两部分的签名，防止数据篡改。
+
+首先，需要指定一个密钥（secret）。这个密钥只有服务器才知道，不能泄露给用户。然后，使用 Header 里面指定的签名算法（默认是 HMAC SHA256），按照下面的公式产生签名。
+
+```js
+HMACSHA256(
+  base64UrlEncode(header) + "." +
+  base64UrlEncode(payload),
+  secret)
+```
+
+算出签名以后，把 Header、Payload、Signature 三个部分拼成一个字符串，每个部分之间用"点"（`.`）分隔，就可以返回给用户。
+
+##### 4.3认证过程
+
+参考token认证的过程，3.2节
+
+##### 4.4特点
+
+- JWT 默认是不加密，但也是可以加密的。生成原始 Token 以后，可以用密钥再加密一次。
+- JWT 不加密的情况下，不能将秘密数据写入 JWT。
+- JWT 不仅可以用于认证，也可以用于交换信息。有效使用 JWT，可以降低服务器查询数据库的次数。
+- JWT 的最大缺点是，由于服务器不保存 session 状态，因此无法在使用过程中废止某个 token，或者更改 token 的权限。也就是说，一旦 JWT 签发了，在到期之前就会始终有效，除非服务器部署额外的逻辑。
+- JWT 本身包含了认证信息，一旦泄露，任何人都可以获得该令牌的所有权限。为了减少盗用，JWT 的有效期应该设置得比较短。对于一些比较重要的权限，使用时应该再次对用户进行认证。
+- 为了减少盗用，JWT 不应该使用 HTTP 协议明码传输，要使用 HTTPS 协议传输。
+
+### 5.基于OAuth(开放授权)认证（主要是规定授权流程）
+
+##### 5.1概念
+
+OAuth（Open Authorization）是一个开放标准，允许用户授权第三方网站访问他们存储在另外的服务提供者上的信息，而不需要将用户名和密码提供给第三方网站或分享他们数据的所有内容，为了保护用户数据的安全和隐私，第三方网站访问用户数据前都需要显式的向用户征求授权。我们常见的提供OAuth认证服务的厂商有支付宝，QQ,微信。
+
+##### 5.2认证过程
+
+GitHub第三方登录示例：
+
+![image-20200706212225503](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200706212228.png)
+
+- 在GitHub中备案第三方应用，拿到属于它的客户端ID和客户端密钥。在`github-settings-developer settings`中创建一个OAuth App。并填写相关内容。填写完成后Github会给你一个客户端ID和客户端密钥。
+
+![image-20200706212257560](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200706212259.png)
+
+- 此时在你的第三方网站就可以提供一个Github登录链接，用户点击该链接后会跳转到Github。这一步拿着客户端ID向Github请求授权码code。
+- 用户跳转到Github，输入Github的用户名密码，表示用户同意使用Github身份登录第三方网站。此时就会带着授权码code跳回第三方网站。跳回的地址在创建该OAuth时已经设置好了。
+- 第三方网站收到授权码，就可以拿着授权码、客户端ID和客户端密钥去向Github请求access_token令牌。
+- Github收到请求，向第三方网站颁发令牌。
+- 第三方网站收到令牌，就可以暂时拥有Github一些请求的权限，比如说拿到用户信息，拿到这个用户信息之后就可以构建自己第三方网站的token，做相关的鉴权操作。
+
+##### 5.3优点
+
+- 客户端不接触用户密码，服务端更易集中保护
+- 广泛传播并被持续采用
+- 支持短寿命和封装的Token.
+- 资源服务器和授权服务器解耦
+- 集中式授权，简化客户端
+- HTTP/JSON友好，易于请求和传递Token.
+- 考虑多种客户端架构场景
+- 客户端可以具有不同的信任级别
+- 
+
+参考资料：
+
+http://www.ruanyifeng.com/blog/2018/07/json_web_token-tutorial.html
+
+https://juejin.im/post/5d67662ee51d45621655353f#heading-11
