@@ -23,11 +23,17 @@ function initData(vm) {  //初始化data
 
 之后具体内容可参考：https://juejin.im/post/5d4ad8686fb9a06b2766b625#heading-0
 
-总结如下：
+总结如下：（响应式原理/数据更新流程）
 
-vue中的数据一开始通过Object.defineProperty对viewModel中数据对象进行属性的get()和set()进行了监听。所以当我们的数据发生更新时，就会触发响应式数据的set方法。当赋值触发`set`时，首先会检测新值和旧值，若不相同则将新值赋值给旧值；如果新值是对象则将它变成响应式之后再赋值过去；最后让对应属性的依赖管理器使用`dep.notify`发出更新视图的通知（将收集起来的`watcher`挨个遍历触发`update`方法）。
+vue中的数据一开始通过Object.defineProperty对viewModel中数据对象进行属性的get()和set()进行了监听。所以当我们的数据发生更新时，就会触发响应式数据的set方法。当赋值触发`set`时，首先会检测新值和旧值，若相同则直接返回，否则将新值赋值给旧值；如果新值是对象则将它变成响应式之后（调用observe方法）再赋值过去；最后让对应属性的依赖管理器使用`dep.notify`发出更新视图的通知（将收集起来的`watcher`挨个遍历触发`update`方法）。
 
-因为是渲染`watcher`，所以会触发`beforeUpdate`钩子。最后执行`watcher.run()`方法，执行真正的派发更新方法。执行run的时候，会先将模板传入render方法解析成vnode，之后将新旧vnode传入update方法中。vm._update中会先判断是否为首次渲染，如果为首次渲染则调用patch()直接将新vnode渲染为真实dom插入到根节点之内即可。若为重新渲染，则调用patch()对比新旧vnode（diff算法）,最后给真实的dom打补丁。最后触发update钩子，页面得到更新。
+执行update方法时，将当前watcher实例传入一个watcher队列中，这个队列的作用是将要执行更新的`watcher`收集到一个队列`queue`之内，保证如果同一个`watcher`内触发了多次更新，只会更新一次对应的`watcher`。比如在同一个watcher中对多个属性进行赋值，因为这几个属性它们收集的都是同一个渲染watcher，所以将当前watcher推入队列之后，之后出发的watcher不会再添加进去了。
+
+> 通过这里大家也看出来了，派发更新通知的粒度是组件级别，至于组件内是哪个属性赋值了，派发更新并不关心，而且怎么高效更新这个视图，那是之后`diff`比对做的事情。
+
+队列有了以后，就会执行nextTick方法，这里的nextTick就是我们经常使用的`this.$nextTick`方法。在nextTick方法内部会将队列进行一次排序（computed watcher->user watcher->render watcher,这个顺序可以从它们的初始化顺序就能看出来）。
+
+之后就是遍历这个队列。因为是渲染`watcher`，所以会触发`beforeUpdate`钩子。最后执行`watcher.run()`方法，执行真正的派发更新方法。执行run的时候，会先将模板传入render方法解析成vnode，之后将新旧vnode传入update方法中。vm._update中会先判断是否为首次渲染，如果为首次渲染则调用patch()直接将新vnode渲染为真实dom插入到根节点之内即可。若为重新渲染，则调用patch()对比新旧vnode（diff算法）,最后给真实的dom打补丁。最后触发update钩子，页面得到更新。
 
 ### 2.基于`Object.defineProperty`响应式系统的一些不足
 
@@ -152,7 +158,199 @@ list2.push('d');  // 4
 
 ### 5.vue-router路由模式有几种？原理是什么？
 
+##### hash路由
 
+> hash路由一个明显的标志是带有`#`,我们主要是通过监听url中的hash变化来进行路由跳转。
+>
+> hash的优势就是兼容性更好,在老版IE中都有运行,问题在于url中一直存在`#`不够美观,而且hash路由更像是Hack而非标准,相信随着发展更加标准化的**History API**会逐步蚕食掉hash路由的市场。
+
+代码实现：
+
+```HTML
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>hash router</title>
+</head>
+<body>
+  <ul>
+      <li><a href="#/">turn yellow</a></li>
+      <li><a href="#/blue">turn blue</a></li>
+      <li><a href="#/green">turn green</a></li>
+  </ul>
+  <button>back</button>
+  <script src="./hash.js" charset="utf-8"></script>
+</body>
+</html>
+```
+
+```js
+class Routers {
+  constructor() {
+    // 储存hash与callback键值对
+    this.routes = {};
+    // 当前hash
+    this.currentUrl = '';
+    // 记录出现过的hash
+    this.history = [];
+    // 作为指针,默认指向this.history的末尾,根据后退前进指向history中不同的hash
+    this.currentIndex = this.history.length - 1;
+    this.refresh = this.refresh.bind(this);
+    this.backOff = this.backOff.bind(this);
+    // 默认不是后退操作
+    this.isBack = false;
+    window.addEventListener('load', this.refresh, false);
+    window.addEventListener('hashchange', this.refresh, false);
+  }
+
+  route(path, callback) {
+    this.routes[path] = callback || function() {};
+  }
+
+  refresh() {
+    this.currentUrl = location.hash.slice(1) || '/';
+    if (!this.isBack) {
+      // 如果不是后退操作,且当前指针小于数组总长度,直接截取指针之前的部分储存下来
+      // 此操作来避免当点击后退按钮之后,再进行正常跳转,指针会停留在原地,而数组添加新hash路由
+      // 避免再次造成指针的不匹配,我们直接截取指针之前的数组
+      // 此操作同时与浏览器自带后退功能的行为保持一致
+      if (this.currentIndex < this.history.length - 1)
+        this.history = this.history.slice(0, this.currentIndex + 1);
+      this.history.push(this.currentUrl);
+      this.currentIndex++;
+    }
+    this.routes[this.currentUrl]();
+    console.log('指针:', this.currentIndex, 'history:', this.history);
+    this.isBack = false;
+  }
+  // 后退功能
+  backOff() {
+    // 后退操作设置为true
+    this.isBack = true;
+    this.currentIndex <= 0
+      ? (this.currentIndex = 0)
+      : (this.currentIndex = this.currentIndex - 1);
+    location.hash = `#${this.history[this.currentIndex]}`;
+    this.routes[this.history[this.currentIndex]]();
+  }
+}
+
+window.Router = new Routers();
+const content = document.querySelector('body');
+const button = document.querySelector('button');
+function changeBgColor(color) {
+  content.style.backgroundColor = color;
+}
+
+Router.route('/', function() {
+  changeBgColor('yellow');
+});
+Router.route('/blue', function() {
+  changeBgColor('blue');
+});
+Router.route('/green', function() {
+  changeBgColor('green');
+});
+
+button.addEventListener('click', Router.backOff, false);
+```
+
+##### History API(HTML5 新路由方案)
+
+> 常用的API
+>
+> ```JS
+> window.history.back();       // 后退 
+> window.history.forward();    // 前进
+> window.history.go(-3);       // 后退三个页面
+> ```
+
+`history.pushState`用于在浏览历史中添加历史记录,但是并不触发跳转,此方法接受三个参数，依次为：
+
+- `state`:一个与指定网址相关的状态对象，`popstate`事件触发时，该对象会传入回调函数。如果不需要这个对象，此处可以填`null`。
+-  `title`：新页面的标题，但是所有浏览器目前都忽略这个值，因此这里可以填`null`。
+-  `url`：新的网址，必须与当前页面处在同一个域。浏览器的地址栏将显示这个网址。
+
+`history.replaceState`方法的参数与`pushState`方法一模一样，区别是它修改浏览历史中当前纪录,而非添加记录,同样不触发跳转。
+
+`popstate`事件,每当同一个文档的浏览历史（即history对象）出现变化时，就会触发popstate事件。
+
+需要注意的是，仅仅调用`pushState`方法或`replaceState`方法 ，并不会触发该事件，只有用户点击浏览器倒退按钮和前进按钮，或者使用 JavaScript 调用`back`、`forward`、`go`方法时才会触发。另外，该事件只针对同一个文档，如果浏览历史的切换，导致加载不同的文档，该事件也不会触发。
+
+```HTML
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>h5 router</title>
+</head>
+<body>
+  <ul>
+      <li><a href="/">turn yellow</a></li>
+      <li><a href="/blue">turn blue</a></li>
+      <li><a href="/green">turn green</a></li>
+  </ul>
+</body>
+</html>
+
+```
+
+```JS
+class Routers {
+  constructor() {
+    this.routes = {};
+    this._bindPopState();
+  }
+  init(path) {
+    history.replaceState({path: path}, null, path);
+    this.routes[path] && this.routes[path]();
+  }
+
+  route(path, callback) {
+    this.routes[path] = callback || function() {};
+  }
+
+  go(path) {
+    history.pushState({path: path}, null, path);
+    this.routes[path] && this.routes[path]();
+  }
+  _bindPopState() {
+    window.addEventListener('popstate', e => {
+      const path = e.state && e.state.path;
+      this.routes[path] && this.routes[path]();
+    });
+  }
+}
+
+window.Router = new Routers();
+Router.init(location.pathname);
+const content = document.querySelector('body');
+const ul = document.querySelector('ul');
+function changeBgColor(color) {
+  content.style.backgroundColor = color;
+}
+
+Router.route('/', function() {
+  changeBgColor('yellow');
+});
+Router.route('/blue', function() {
+  changeBgColor('blue');
+});
+Router.route('/green', function() {
+  changeBgColor('green');
+});
+
+ul.addEventListener('click', e => {
+  if (e.target.tagName === 'A') {
+    e.preventDefault();
+    Router.go(e.target.getAttribute('href'));
+  }
+});
+
+```
 
 ### 6.computed和watch的区别和原理
 
