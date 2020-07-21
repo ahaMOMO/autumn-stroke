@@ -181,3 +181,47 @@ p { margin: 10px 0; }
 ```
 
 则此时.a 元素的外部尺寸是-50px，取绝对负值最大的值。  
+
+#### 3.面试题
+
+1.里层div距离p标签的margin值实际为多少
+
+```html
+<p>foo</p>
+<div style="margin-top: 60px">       
+   <div style="margin-top: 50px">bar</div>   
+</div>
+```
+
+答案是：60px
+
+### 二、CSS盒子模型
+
+#### 1.标准盒子模型
+
+标准盒子模型：width = content；
+
+可通过box-sizing：content-box；设置
+
+![image-20200722000828870](CSS%E5%B8%B8%E8%A7%81%E8%80%83%E7%82%B9/image-20200722000828870.png)
+
+#### 2.IE盒子模型
+
+IE盒子模型：width = content +padding +border；
+
+可通过box-sizing：border-box；设置
+
+![image-20200722001124067](CSS%E5%B8%B8%E8%A7%81%E8%80%83%E7%82%B9/image-20200722001124067.png)
+
+#### 3.面试题
+
+1.CSS的两种盒模型中，这个div的宽度是多少？
+
+```html
+<div style="width: 100px; padding:10px; margin: 15px; border: 5px solid red"></div>
+```
+
+标准盒子模型中（content-box）：width = 100px；
+
+IE盒子模型中（border-box）：width = content + 2 * padding + 2 * border = 70px + 2 * 10px + 2 *5 = 100px;
+
