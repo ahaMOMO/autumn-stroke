@@ -225,3 +225,5 @@ IE盒子模型：width = content +padding +border；
 
 IE盒子模型中（border-box）：width = content + 2 * padding + 2 * border = 70px + 2 * 10px + 2 *5 = 100px;
 
+### 三.BFC
+
