@@ -488,3 +488,119 @@ align-items: center;
 ![image-20200725194429036](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200725194430.png)
 
 给浮动元素的容器也添加上浮动属性即可清除内部浮动，但是这样会使其整体浮动，影响布局，不推荐使用。
+
+### 六、重排与重绘
+
+首先先了解一下浏览器的大致渲染过程：
+
+- 构建dom树（生成dom tree）
+
+- 根据继承和层叠规则进行元素的样式计算 （生成css rule tree）
+
+- 构建布局树，也就是渲染树（通过dom tree + css rule tree = rendering tree），创建完渲染树之后，我们就要计算每个元素在设备视口内的确切位置和大小（这就是发生**重排**的阶段）
+
+- 当有了布局树并且知道了每个元素的具体位置，那么就要为特定的节点生成专用的图层，生成图层,这是因为页面上会有很多的复杂效果，比如3D变换，页面滚动。
+
+  > 满足以下条件就可以被提升为单独的一个图层：
+  >
+  > - 拥有层叠上下文属性的元素会被提升为单独的一层（定位fixed、opacity、css滤镜filter、z-index等）
+  > - 需要剪裁（clip）的地方也会被创建为图层（）
+
+- 之后再将各个节点绘制到屏幕上。（这就是发生**重绘**的阶段，绘制操作是由渲染引擎中的合成线程来做的，而之前的都是在GUI渲染线程中进行）
+
+> 我们应当注意的是：**重绘不一定导致重排，但重排一定会导致重绘。**
+
+#### 1.触发重排的操作
+
+- 页面第一次渲染 在页面发生首次渲染的时候，所有组件都要进行首次布局，这是开销最大的一次重排
+
+- 浏览器窗口尺寸改变
+
+- 元素位置和尺寸发生改变的时候
+
+- 新增和删除可见元素
+
+- 内容发生改变（文字数量或图片大小等等）
+
+- 元素字体大小变化
+
+- 激活CSS伪类（例如：`:hover`）
+
+- 设置style属性
+
+- 查询某些属性或调用某些方法。比如说：
+
+  offsetTop、offsetLeft、 offsetWidth、offsetHeight、scrollTop、scrollLeft、scrollWidth、scrollHeight、clientTop、clientLeft、clientWidth、clientHeight
+
+#### 2.触发重绘的操作
+
+- `vidibility`、`outline`、背景色等属性的改变
+
+#### 3.如何避免或减少重排重绘？
+
+- 样式集中改变（减少重排重绘）
+
+  ```js
+  //bad
+  var left = 10;
+  var top = 10;
+  el.style.left = left + "px";
+  el.style.top = top + "px";
+  ```
+
+  虽然现在大部分现代浏览器都会有`Flush`队列进行渲染队列优化，但是有些老版本的浏览器比如IE6这样的坑货效率依然低下： 这时我们就可以通过上面所说的利用`class`和`cssText`属性集中改变样式。
+
+  ```js
+  //good
+  el.className += " className";
+  ```
+
+- 缓存布局信息（减少重排重绘）
+
+  ```js
+  // bad 强制刷新 触发两次重排
+  div.style.left = div.offsetLeft + 1 + 'px';
+  div.style.top = div.offsetTop + 1 + 'px';
+  
+  // good 缓存布局信息 相当于读写分离
+  var curLeft = div.offsetLeft;
+  var curTop = div.offsetTop;
+  div.style.left = curLeft + 1 + 'px';
+  div.style.top = curTop + 1 + 'px';
+  ```
+
+- 将dom离线化（减少重排重绘）
+
+  一旦我们给元素设置`display:none`时，元素不会存在于渲染树中，相当于将其从页面“拿掉”，我们之后的操作将不会触发重排和重绘，这叫做DOM的离线化。
+
+  ```js
+  dom.display = 'none'
+  // 修改dom样式
+  dom.display = 'block'
+  ```
+
+- 将`position`属性设置为`absolute`或`fixed`（避免重排，只需重绘）
+
+  `position`属性为`absolute`或`fixed`的元素，重排开销比较小，不用考虑它对其他元素的影响。因为它们为单独的一个图层了。
+
+- 启用CPU加速（避免重排重绘）
+
+  GPU 硬件加速是指应用 GPU 的图形性能对浏览器中的一些图形操作交给 GPU 来完成，因为 GPU 是专门为处理图形而设计，所以它在速度和能耗上更有效率。
+
+  GPU 加速通常包括以下几个部分：Canvas2D，布局合成, CSS3转换（`transition`），CSS3 3D变换（`transform），WebGL和视频(`video`)。
+
+  ```css
+  /*
+  * 根据上面的结论
+  * 将 2d transform 换成 3d
+  * 就可以强制开启 GPU 加速
+  * 提高动画性能
+  */
+  div {
+  	transform: translate3d(10px, 10px, 0);
+  }
+  ```
+
+- 用opacity代替visibilty,用visibility代替display:none;
+
+  opacity(不一定重绘)、visibility(只需重绘)、display:none(需重排重绘)
