@@ -15,7 +15,17 @@ function initData(vm) {  //初始化data
 
 ![image-20200718133327835](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200718133330.png)
 
-![image-20200718152507694](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200718152508.png)
+![
+
+
+
+
+
+
+
+
+
+image-20200718152507694](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200718152508.png)
 
 - 利用`Proxy`或`Object.defineProperty`生成的Observer针对对象/对象的属性进行"劫持",在属性发生变化后通知订阅者
 - 解析器Compile解析模板中的`Directive`(指令)，初始化watcher。收集指令所依赖的方法和数据,等待数据变化然后进行渲染
@@ -359,7 +369,7 @@ ul.addEventListener('click', e => {
 我们需要理解以下问题：
 
 - computed是如何初始化，初始化之后干了些什么
-- 为何触发data值改变时computed会从新计算
+- 为何触发data值改变时computed会重新计算
 - computed值为什么说是被缓存的呢，如何做的
 
 ##### watch原理：
@@ -386,4 +396,26 @@ key 是为 Vue 中 vnode 的唯一标记，通过这个 key，我们的 diff 操
 - 把definePerproty改为了proxy,对于js引擎更加友好，响应更加高效。
 - 之前vue的代码，只有一-个vue对象进来，所有的东西都在vue上,这样的话其实所有你没用到的东西也没有办法扔掉，因为它们全都已经被添加到vue这个全局对象上了。vue3的话，一些不是每个应用都需要的功能，我们就做成了按需引入。用ES module imports按需引入，举例来说，内置组件像keep-alive、transition, 指令的工具函数。比如async component、使用mixins、或者是memoize都可以做成按需引入。
 - 加强了typescript的支持，虽然我们在vue2已经可以使用typescript了,但是在vue3中，进一步加强了对typescript的支持， 很可能以后你就需要用typescript来写vue了;
+
+### 10.vue指令有哪些？v-if/v-show的区别
+
+![img](https://raw.githubusercontent.com/ahaMOMO/autumn-stroke/master/img/20200804153421)
+
+### 11.vue是什么？怎么理解？
+
+vuejs是一种前端的渐进式js框架。它让我们只需要关注视图层，十分容易上手。
+
+它有两大核心思想：
+
+1）数据驱动：视图是由数据驱动生成的，我们对视图的修改，不会直接操作 DOM，而是通过修改数据。它相比我们传统的前端开发，如使用 jQuery 等前端库直接修改 DOM，大大简化了代码量。特别是当交互复杂的时候，只关心数据的修改会让代码的逻辑变的非常清晰，因为 DOM 变成了数据的映射，我们所有的逻辑都是对数据的修改，而不用碰触 DOM，这样的代码非常利于维护。
+
+> 数据驱动中讲的是怎么把原始数据映射到DOM中，以及数据变化到DOM变化的部分，而数据变化到DOM变化的部分依靠的就是它的响应式原理。
+
+2）组件化：把页面拆分成多个组件 (component)，每个组件依赖的 CSS、JavaScript、模板、图片等资源放在一起开发和维护。组件是资源独立的，组件在系统内部可复用，组件和组件之间可以嵌套。
+
+### 12.vue-cli2.0和vue-cli3.0的区别？其中vue-cli3.0的vue.config.js用来做什么？
+
+参考：https://gitpress.io/@rainy/vue-cli3
+
+
 
