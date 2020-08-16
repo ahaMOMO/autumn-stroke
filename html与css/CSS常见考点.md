@@ -435,7 +435,8 @@ align-items: center;
 <div class="father">
     <div class="left">left son</div>
     <div class="right">right son</div>
-    //这里如果后面还有标签内容，直接在浮动元素后面的标签添加clear类也是可以的。不一定要新增一个空标签
+    //这里如果后面还有标签内容，直接在浮动元素后面的标签
+    //添加clear类也是可以的。不一定要新增一个空标签
     <div class="clear"></div> 
 </div>
 ```

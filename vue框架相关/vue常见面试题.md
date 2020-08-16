@@ -417,5 +417,57 @@ vuejs是一种前端的渐进式js框架。它让我们只需要关注视图层�
 
 参考：https://gitpress.io/@rainy/vue-cli3
 
+### 13.emit/on实现
+
+```js
+class Event {
+    constructor() {
+        this._events = {}; //装载事件
+    }
+
+    on(eventName, callback) {
+        if (!this._events) {
+            this._events = {};
+        }
+        if (!this._events[eventName]) {
+            this._events[eventName] = [];
+        }
+        this._events[eventName].push(callback);
+
+    }
+
+    emit(eventName, ...args) {
+        let handle = this._events[eventName];
+        if (handle) {
+            for (let i = 0; i < handle.length; i++) {
+                handle[i].apply(this, args);
+            }
+        }
+    }
+    off(eventName,fn){
+        let handle = this._events[eventName];
+        if (handle) {
+            let position = -1; //记录该函数所在位置
+            for (let i = 0; i < handle.length; i++) {
+                if(handle[i] === fn){
+                    position = i;
+                }
+            }
+            if(position != -1){
+                handle.splice(position,1);
+            }
+        }
+    }
+}
+
+let event = new Event();
+event.on("b", function (...msg) {
+    console.log(msg);
+});
+event.emit("b", "您好","Sdf");
+```
+
+
+
 
 
